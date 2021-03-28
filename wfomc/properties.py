@@ -165,6 +165,7 @@ PROPERTIES = [
         (~C1(x) | ~C2(x)) &
         (~E(x,y) | (~(C1(x) & C1(y)) & ~(C2(x) & C2(y))))""",
         ccs = [('E', 3)],
+        increment = 2,
         weights = [('S1', 1, -1), ('S2', 1, -1), ('S3', 1, -1)],
         divisor = exp6),
     Property("two_regularity_and_three_coloredness",
@@ -185,7 +186,6 @@ PROPERTIES = [
         (~E(x,y) | (~(C1(x) & C1(y)) & ~(C2(x) & C2(y)) & ~(C3(x) & C3(y))))""",
         ccs = [('E', 2)],
         weights = [('S1', 1, -1), ('S2', 1, -1)],
-        increment = 2,
         divisor = exp2)
     ]
 
