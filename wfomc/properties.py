@@ -36,20 +36,20 @@ class Property:
         return f"output/{self.name}.out"
 
     def parse_file(self):
-        l = []
+        l = {}
 
         filename = self.filename()
         if os.path.isfile(filename):
             with open(self.filename(), 'r') as f: # could use csv parser here instead
                 for line in f.read().splitlines():
                     n, r, d = line.split(",")
-                    l.append((int(n), int(r), float(d)))
+                    l[int(n)] = int(r), float(d)
         return l
 
     def last_uncomputed(self):
         computed = self.parse_file()
         if computed:
-            return computed[-1][0] + 1
+            return max(computed.keys()) + 1
         else:
             return 0
 
@@ -71,10 +71,16 @@ class Property:
         return result, duration
 
     def evaluate_and_save(self, n):
-        r, d = self.evaluate_time(n)
-        with open(self.filename(), 'a') as out:
-            print(f"{n},{r},{d}", file=out)
-        return self.name, n, r, d
+        computed = self.parse_file() # Use cached data if available
+        if n in computed:
+            r, d = computed[n]
+            e = "(cached)"
+        else:
+            r, d = self.evaluate_time(n)
+            with open(self.filename(), 'a') as out:
+                print(f"{n},{r},{d}", file=out)
+            e = ""
+        return self.name, n, r, d, e
 
     def evaluate_and_saveuate_next(self):
         n = self.last_uncomputed()
@@ -90,14 +96,8 @@ PROPERTIES = [
         ccs = [('F', 1)],
         weights = [('S1', 1, -1)]),
     Property("derangements",
-        """~F(x,x) &
-        (S1(x) | ~F1(x, y)) &
-        (S2(x) | ~F2(y, x)) &
-        (F1(x,y) | ~F(x,y)) &
-        (~F1(x,y) | F(x,y)) &
-        (F2(x,y) | ~F(x,y)) &
-        (~F2(x,y) | F(x,y))""",
-        ccs = [('F1', 1), ('F2', 1)],
+       "~F(x,x) & (S1(x) | ~F(x,y)) & (S2(x) | ~F(y,x))",
+        ccs = [('F', 1)],
         weights = [('S1', 1, -1), ('S2', 1, -1)]),
     Property("two_regularity",
         """~E(x, x) &
@@ -168,6 +168,24 @@ PROPERTIES = [
         increment = 2,
         weights = [('S1', 1, -1), ('S2', 1, -1), ('S3', 1, -1)],
         divisor = exp6),
+    Property("two_regularity_and_two_coloredness",
+        """~E(x, x) &
+        (~E(x, y) | E(y, x)) &
+        (~F(x, y) | E(x, y)) &
+        (F(x, y) | ~E(x, y)) &
+        (S1(x) | ~F1(x, y)) &
+        (S2(x) | ~F2(x, y)) &
+        (~F(x, y) | F1(x, y) | F2(x, y)) &
+        (F(x, y) | ~F1(x, y)) &
+        (F(x, y) | ~F2(x, y)) &
+        (~F1(x, y) | ~F2(x, y)) &
+        (C1(x) | C2(x) ) &
+        (~C1(x) | ~C2(x)) &
+        (~E(x,y) | (~(C1(x) & C1(y)) & ~(C2(x) & C2(y)) ))""",
+        ccs=[('F', 2)],
+        weights = [('S1', 1, -1), ('S2', 1, -1)],
+        increment = 2,
+        divisor = exp2),
     Property("two_regularity_and_three_coloredness",
         """~E(x, x) &
         (~E(x, y) | E(y, x)) &
@@ -189,25 +207,21 @@ PROPERTIES = [
         divisor = exp2)
     ]
 
-class Executor(ProcessPoolExecutor):
-    def __init__(self, n, properties):
-        ProcessPoolExecutor.__init__(self, n)
-        self.properties = properties
-
-    def submitProperty(self, p):
-        future = self.submit(p.evaluate_next)
-        future.add_done_callback(self.cb)
-
-    def cb(self, future):
-        p, r = future.result()
-        print(f"{p.name} {r}")
-        self.submitProperty(p)
+PROPERTIES_DICT = {p.name : p for p in PROPERTIES}
 
 def cb(fut):
     print(*fut.result())
 
-with ProcessPoolExecutor(5) as executor:
+def main():
     for n in range(100):
-        for prop in PROPERTIES:
-            future = executor.submit(prop.evaluate_and_save, n)
-            future.add_done_callback(cb)
+        r = PROPERTIES_DICT["two_regularity_and_two_coloredness"].evaluate_and_save(n)
+        print(r)
+    return
+    with ProcessPoolExecutor(max_workers=5) as executor:
+        for n in range(100):
+            for prop in PROPERTIES:
+                future = executor.submit(prop.evaluate_and_save, n)
+                future.add_done_callback(cb)
+
+if __name__ == "__main__":
+    main()
