@@ -213,10 +213,6 @@ def cb(fut):
     print(*fut.result())
 
 def main():
-    for n in range(100):
-        r = PROPERTIES_DICT["two_regularity_and_two_coloredness"].evaluate_and_save(n)
-        print(r)
-    return
     with ProcessPoolExecutor(max_workers=5) as executor:
         for n in range(100):
             for prop in PROPERTIES:
